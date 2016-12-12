@@ -42,6 +42,9 @@
 #define MIN_UPDATE_FREQUENCY    5
 #define MAX_UPDATE_FREQUENCY 7200
 
+// Configuration color intensity (to 255)
+#define CONFIG_COLOR_INTENSITY 50
+
 
 // EEPROM config structure
 struct ClConfiguration {
@@ -54,6 +57,7 @@ struct ClConfiguration {
   unsigned long tsChannel;
   int tsField;
   bool smoothUpdate;
+  bool brightenColors;
 };
 
 // Pixel color
@@ -97,7 +101,7 @@ void setup() {
 
   // Setup FastLED
   FastLED.addLeds<NEOPIXEL, LED_PIN> (&led, 1).setCorrection (TypicalSMD5050);
-  setColor (100, 0, 0);
+  setColor (CONFIG_COLOR_INTENSITY, 0, 0);
 
   // Read config
   EEPROM.begin (sizeof (ClConfiguration));
@@ -113,6 +117,7 @@ void setup() {
     config.tsChannel = DEFAULT_TS_CHANNEL;
     config.tsField = DEFAULT_TS_FIELD;
     config.smoothUpdate = true;
+    config.brightenColors = false;
   }
 
   // Run configuration AP
@@ -132,7 +137,7 @@ void setup() {
   lastInteractionTime = millis();
 
   delay (500);
-  setColor (0, 100, 0);
+  setColor (0, CONFIG_COLOR_INTENSITY, 0);
 }
 
 /**
@@ -172,6 +177,7 @@ void wsHandleRoot() {
   resp += "<tr><td>AP Password:</td><td><input type=\"password\" name=\"password\" value=\"" + String(config.password) + "\" maxlength=\"48\"></td><td></td></tr>";
   resp += "<tr><td>Update frequency:</td><td><input type=\"text\" name=\"sampleFrequency\" value=\"" + String(config.updateFrequency) + "\"></td><td></td></tr>";
   resp += "<tr><td>Smooth update:</td><td><input type=\"checkbox\" name=\"smoothUpdate\" " + (config.smoothUpdate ? String("checked") : String("")) + "></td><td></td></tr>";
+  resp += "<tr><td>Brighten colors:</td><td><input type=\"checkbox\" name=\"brightenColors\" " + (config.brightenColors ? String("checked") : String("")) + "></td><td></td></tr>";
   resp += "<tr><td>ThingSpeak host:</td><td><input type=\"text\" name=\"tsHost\" value=\"" + String(config.tsHost) + "\" maxlength=\"40\"></td><td></td></tr>";
   resp += "<tr><td>ThingSpeak port:</td><td><input type=\"text\" name=\"tsPort\" value=\"" + String(config.tsPort) + "\"></td><td></td></tr>";
   resp += "<tr><td>ThingSpeak channel:</td><td><input type=\"text\" name=\"tsChannel\" value=\"" + String(config.tsChannel) + "\"></td><td></td></tr>";
@@ -212,7 +218,8 @@ void wsHandleUpdate() {
   unsigned int tsPort = atoi (server->arg ("tsPort").c_str());
   unsigned long tsChannel = atol (server->arg ("tsChannel").c_str());
   int tsField = atoi (server->arg ("tsField").c_str());
-  bool smoothUpdate = server->arg ("smoothUpdate") == String("1");
+  bool smoothUpdate = server->arg ("smoothUpdate") == String("on");
+  bool brightenColors = server->arg ("brightenColors") == String("on");
 
   if (apName.length() > 1) {
     updateConfigKey (config.apName, 24, apName);
@@ -223,6 +230,7 @@ void wsHandleUpdate() {
     config.tsChannel = tsChannel;
     config.tsField = tsField;
     config.smoothUpdate = smoothUpdate;
+    config.brightenColors = brightenColors;
   
     // store configuration
     EEPROM.begin (sizeof (ClConfiguration));
@@ -265,13 +273,13 @@ void reconnectWifi() {
   delay (5000);
   while (WiFi.status() != WL_CONNECTED) {
     yield();
-    setColor (100, 0, 100);
+    setColor (CONFIG_COLOR_INTENSITY, 0, CONFIG_COLOR_INTENSITY);
     delay(500);
-    setColor (100, 0, 0);
+    setColor (CONFIG_COLOR_INTENSITY, 0, 0);
     delay (500);
     Serial.print (".");
   }
-  setColor (0, 100, 0);
+  setColor (0, CONFIG_COLOR_INTENSITY, 0);
   delay (500);
   Serial.println();
   Serial.println ("WiFi connected...");
@@ -300,6 +308,28 @@ void updateColor() {
     
     setColor();
   }
+}
+
+/**
+ * Method brighten color.
+ *
+ * @param color original color.
+ * @return unsigned long new color.
+*/
+unsigned long brightenColor (unsigned long color) {
+  unsigned long result = color;
+
+  switch (color) {
+    case 0x008000 :
+      result = 0x00FF00UL;
+    break;
+    case 0x800080 :
+      result = 0xFF00FFUL;
+    break;
+    default : break;
+  }
+
+  return result;
 }
 
 /**
@@ -356,7 +386,11 @@ void thingSpeakLoop() {
 
               Serial.print ("Readed color: ");
               Serial.println (color, HEX);
-              
+
+              if (config.brightenColors) {
+                color = brightenColor (color);
+              }
+
               reqPixelColor.red =   (color & 0xFF0000) >> 16;
               reqPixelColor.green = (color & 0x00FF00) >>  8;
               reqPixelColor.blue =  (color & 0x0000FF);
@@ -418,9 +452,9 @@ void loop() {
         state = !state;
 
         if (state) {
-          setColor (100, 100, 0);
+          setColor (CONFIG_COLOR_INTENSITY, CONFIG_COLOR_INTENSITY, 0);
         } else {
-          setColor (0, 100, 100);
+          setColor (0, CONFIG_COLOR_INTENSITY, CONFIG_COLOR_INTENSITY);
         }
 
         lastUpdate = curMillis;
