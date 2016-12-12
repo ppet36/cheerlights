@@ -5,7 +5,6 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
-#include <ESP8266WiFiMulti.h>
 #include <ESP8266WebServer.h>
 #define FASTLED_ALLOW_INTERRUPTS 0
 #include <FastLED.h>
@@ -15,9 +14,6 @@
 
 // WEB server configuration port
 #define WEB_SERVER_PORT 80
-
-// Wifi
-ESP8266WiFiMulti wifiMulti;
 
 // Configuration WIFI name
 #define WIFI_AP_SSID "CheerlightsConfig"
@@ -265,9 +261,9 @@ void reconnectWifi() {
   delay (2000);
 
   Serial.print ("Connecting to "); Serial.print (config.apName); Serial.print (' ');
-  wifiMulti.addAP (config.apName, config.password);
+  WiFi.begin (config.apName, config.password);
   delay (5000);
-  while (wifiMulti.run() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED) {
     yield();
     setColor (100, 0, 100);
     delay(500);
@@ -324,7 +320,7 @@ void thingSpeakLoop() {
     updateColor();
 
     if (millis() - lastInteractionTime > (long)config.updateFrequency * 1000L) {
-      if (wifiMulti.run() == WL_CONNECTED) {
+      if (WiFi.status() == WL_CONNECTED) {
         WiFiClient client;
 
         // connect to ThingSpeak
