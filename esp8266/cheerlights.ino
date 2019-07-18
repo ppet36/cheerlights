@@ -290,23 +290,25 @@ void reconnectWifi() {
  * aproximates target color.
 */
 void updateColor() {
-  int redDiff, greenDiff, blueDiff;
-  if (config.smoothUpdate) {
-    redDiff = constrain (reqPixelColor.red - actPixelColor.red, -1, 1);
-    greenDiff = constrain (reqPixelColor.green - actPixelColor.green, -1, 1);
-    blueDiff = constrain (reqPixelColor.blue - actPixelColor.blue, -1, 1);
-  } else {
-    redDiff = reqPixelColor.red - actPixelColor.red;
-    greenDiff = reqPixelColor.green - actPixelColor.green;
-    blueDiff = reqPixelColor.blue - actPixelColor.blue;
-  }
+  int redDiff = 1, greenDiff = 1, blueDiff = 1;
+  while ((redDiff != 0) || (greenDiff != 0) || (blueDiff != 0)) {
+    if (config.smoothUpdate) {
+      redDiff = constrain (reqPixelColor.red - actPixelColor.red, -1, 1);
+      greenDiff = constrain (reqPixelColor.green - actPixelColor.green, -1, 1);
+      blueDiff = constrain (reqPixelColor.blue - actPixelColor.blue, -1, 1);
+    } else {
+      redDiff = reqPixelColor.red - actPixelColor.red;
+      greenDiff = reqPixelColor.green - actPixelColor.green;
+      blueDiff = reqPixelColor.blue - actPixelColor.blue;
+    }
   
-  if ((redDiff != 0) || (greenDiff != 0) || (blueDiff != 0)) {
     actPixelColor.red += redDiff;
     actPixelColor.green += greenDiff;
     actPixelColor.blue += blueDiff;
     
     setColor();
+
+    delay(10);
   }
 }
 
@@ -381,7 +383,9 @@ void thingSpeakLoop() {
           while (!isError) {
             String resp = client.readStringUntil ('\n');
 
-            if ((resp[0] == '#') && (resp.length() == 8)) {
+            Serial.print (resp.length()); Serial.print (F(" > ")); Serial.println (resp);
+
+            if ((resp.length() == 7) && (resp[0] == '#')) {
               unsigned long color = strtoul (resp.c_str() + 1, NULL, 16);
 
               Serial.print ("Readed color: ");
@@ -403,6 +407,8 @@ void thingSpeakLoop() {
               errorCount++;
               isError = true;
             }
+
+            yield();
           }
 
           // Disconnect client
